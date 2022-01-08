@@ -54,4 +54,21 @@ if (isset($_POST["kf-km"]) && $_POST["kf-km"]) {
     $host = gethostbyaddr($remote);
 
     // formcheck
+    if(!$name) {
+        $fehler['name'] = "<span class='errormsg'>Geben Sie bitte Ihren <strong>Namen</strong> ein.</span>";
+    }
+
+    if(!preg_match("/^[0-9a-zA-ZAÜÖ_.-]+@[0-9a-z.-]+\.[a-z]{2,6}$/", $email)){
+        $fehler['email'] = "<span class='errormsg'>Geben Sie bitte Ihre <strong>E-Mail-Adresse</strong> ein.</span>";
+    }
+
+    if(!$betreff) {
+        $fehler['betreff'] = "<span class='errormsg'>Geben Sie Bitte einen <strong>Betreff</strong> ein.</span>";
+    }
+
+    if(!$nachricht) {
+        $fehler['nachricht'] = "<span class='errormsg'>Geben Sie Bitte eine <strong>Nachricht</strong> ein.</span>";
+    }
+
+    // spamprotection error messages
 }
