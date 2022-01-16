@@ -53,12 +53,12 @@ if (isset($_POST["kf-km"]) && $_POST["kf-km"]) {
     $UserAgent = $_ERVER("HTTP_USER_AGENT");
     $host = gethostbyaddr($remote);
 
-    // formcheck
+    // formcheck start.
     if(!$name) {
         $fehler['name'] = "<span class='errormsg'>Geben Sie bitte Ihren <strong>Namen</strong> ein.</span>";
     }
 
-    if(!preg_match("/^[0-9a-zA-ZAÜÖ_.-]+@[0-9a-z.-]+\.[a-z]{2,6}$/", $email)){
+    if(!preg_match("/^[0-9a-zA-ZAÜÖ_.-]+@[0-9a-z.-]+\.[a-z]{2,6}$/", $email)) {
         $fehler['email'] = "<span class='errormsg'>Geben Sie bitte Ihre <strong>E-Mail-Adresse</strong> ein.</span>";
     }
 
@@ -69,6 +69,68 @@ if (isset($_POST["kf-km"]) && $_POST["kf-km"]) {
     if(!$nachricht) {
         $fehler['nachricht'] = "<span class='errormsg'>Geben Sie Bitte eine <strong>Nachricht</strong> ein.</span>";
     }
+    // formcheck end.
 
-    // spamprotection error messages
+    // spamprotection error messages start.
+    if($cfg['Sicherheitscode'] && $sicherheits_eingabe != $_SESSION['captcha_spam']) {
+        unset($_SESSION['captcha_spam']);
+        $fehler['captcha'] = "<span class='errormsg'>Der <strong>Sicherheitscode</strong> wurde falsch eingegeben.</span>";
+    }
+
+    if(['Sicherheitsfrage']) {
+        $answer = Antispam::getAnswerById(intval($_POST["q_id"]));
+        if(isset($_POST["q"]) && $_POST["q"] != $answer) {
+            $fehler['q_id12'] = "<span class='errormsg'>Bitte die <strong>Sicherheitsfrage</strong> richtig beantworten.</span>";
+        }
+    }
+
+    if($cfg['Honeypot'] && (!isset($_POST["mail"]) || ''!=$_POST["mail"])) {
+        $fehler['Honeypot'] = "<span class='errormsg' style='display: block; color: red; font-size: .75rem;>Es besteht Spamverdacht. Bitte überprüfen Sie Ihre Angaben</span>";
+    }
+
+    if($cfg['Zeitsperre'] && (!isset($_POST["chkspmtm"]) || ''==$_POST["chkspmtm"] || '0'==$_POST["chkspmtm"] || (time() - (int) $_POST["chkspmtm"]) < (int) $cfg['Zeitsperre'])){
+		$fehler['Zeitsperre'] = "<span class='errormsg' style='display: block; color: red; font-size: .75rem;'>Bitte warten Sie einige Sekunden, bevor Sie das Formular erneut absenden.</span>";
+	}
+
+    if($cfg['Klick-Check'] && (!isset($_POST["chkspmkc"]) || 'chkspmhm'!=$_POST["chkspmkc"])){
+		$fehler['Klick-Check'] = "<span class='errormsg' style='display: block; color: red; font-size: .75rem;'>Sie müssen den Senden-Button mit der Maus anklicken, um das Formular senden zu können.</span>";
+	}
+
+    if($cfg['Links'] < preg_match_all('#http(s?)\:\/\/#is', $nachricht, $irrelevantMatches)) {
+        $fehler['Links'] = "<span class='errormsg' style='display: block; color: red; font-size: .75rem;'>Ihre Nachricht darf "
+           .(0==$cfg['Links'] ?
+             'keine Links' :
+                (1==$cfg['Links'] ?
+                    'nur einen Link' :
+                    'maximal ' .$cfg['Links']. ' Links'
+                )
+            )." enthalten.</span>";
+    }
+
+    if(''!=$cfg['Badwordfilter'] && 0!==$cfg['Badwordfilter'] && '0'!=$cfg['Badwordfilter']){
+		$badwords = explode(',', $cfg['Badwordfilter']);			// the configured badwords
+		$badwordFields = explode(',', $cfg['Badwordfields']);		// the configured fields to check for badwords
+		$badwordMatches = array();									// the badwords that have been found in the fields
+		
+		if(0<count($badwordFields)){
+			foreach($badwords as $badword){
+				$badword = trim($badword);												// remove whitespaces from badword
+				$badwordMatch = str_replace('%', '', $badword);							// take human readable badword for error-message
+				$badword = addcslashes($badword, '.:/');								// make ., : and / preg_match-valid
+				if('%'!=substr($badword, 0, 1)){ $badword = '\\b'.$badword; }			// if word mustn't have chars before > add word boundary at the beginning of the word
+				if('%'!=substr($badword, -1, 1)){ $badword = $badword.'\\b'; }			// if word mustn't have chars after > add word boundary at the end of the word
+				$badword = str_replace('%', '', $badword);								// if word is allowed in the middle > remove all % so it is also allowed in the middle in preg_match 
+				foreach($badwordFields as $badwordField){
+					if(preg_match('#'.$badword.'#is', $_POST[trim($badwordField)]) && !in_array($badwordMatch, $badwordMatches)){
+						$badwordMatches[] = $badwordMatch;
+					}
+				}
+			}		
+			
+			if(0<count($badwordMatches)){
+				$fehler['Badwordfilter'] = "<span class='errormsg' style='display: block; color:red;font-size:.75rem;'>Folgende Begriffe sind nicht erlaubt: ".implode(', ', $badwordMatches)."</span>";
+			}
+		}		
+	}
+    // spamprotection error messages end.
 }
